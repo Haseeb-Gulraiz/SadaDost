@@ -1,0 +1,21 @@
+{
+  "version": 1,
+  "input": {
+    "version": 1,
+    "guardrails": [
+      { "name": "Moderation", "config": {} },
+      { "name": "Jailbreak", "config": { "model": "gpt-4o-mini", "confidence_threshold": 0.7 } }
+    ]
+  },
+  "output": {
+    "version": 1,
+    "guardrails": [
+      {
+        "name": "Contains PII",
+        "config": {
+          "entities": ["CREDIT_CARD", "IBAN_CODE", "PHONE_NUMBER", "EMAIL_ADDRESS"]
+        }
+      }
+    ]
+  }
+}

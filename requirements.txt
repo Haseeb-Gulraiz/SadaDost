@@ -1,0 +1,11 @@
+# Backend dependencies
+fastapi
+uvicorn[standard]
+openai
+openai-guardrails
+python-dotenv
+pydantic
+
+# Dev / tests
+pytest
+httpx

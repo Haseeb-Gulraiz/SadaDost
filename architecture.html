@@ -1,0 +1,216 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>SadaDost — Architecture & Decision Flow</title>
+<style>
+  :root{
+    --ink:#0f1f1b; --muted:#6b7a75; --line:#cbded7;
+    --brand:#0e7c66; --brand2:#10b981; --soft:#e7f7f1;
+    --safe:#10b981; --danger:#e23d3d; --warn:#e8920c; --info:#2f7fd6;
+    --amber:#f59e0b; --amberbg:#fff6e6;
+    font-family:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;color:var(--ink);
+    background:
+      radial-gradient(1200px 500px at 0% -5%, #d4f5e9 0%, transparent 55%),
+      radial-gradient(1000px 600px at 110% 8%, #cdeeff 0%, transparent 50%),
+      linear-gradient(160deg,#f5fbf9,#eef6ff);
+    min-height:100vh; padding:28px 16px 60px;}
+  .wrap{max-width:1040px;margin:0 auto}
+
+  /* header */
+  .head{display:flex;align-items:center;gap:14px;margin-bottom:6px}
+  .mark{width:46px;height:46px;border-radius:14px;background:linear-gradient(135deg,#10b981,#0e7c66);
+    display:grid;place-items:center;color:#fff;font-weight:800;font-size:20px;box-shadow:0 10px 24px rgba(16,185,129,.35)}
+  .title{font-size:24px;font-weight:800;letter-spacing:-.01em}
+  .sub{color:var(--muted);font-size:13px;margin-top:2px}
+  .legendline{display:flex;gap:14px;flex-wrap:wrap;margin:14px 0 22px;font-size:12px;color:var(--muted)}
+  .key{display:flex;align-items:center;gap:6px}
+  .dot{width:11px;height:11px;border-radius:50%}
+
+  /* flow */
+  .flow{display:flex;flex-direction:column;align-items:center;gap:0}
+  .node{position:relative;background:#fff;border:1.5px solid var(--line);border-radius:16px;
+    padding:14px 18px;min-width:300px;text-align:center;box-shadow:0 8px 22px rgba(14,124,102,.08);
+    animation:pop .6s both, breathe 3.6s ease-in-out infinite}
+  .node .t{font-weight:700;font-size:15px}
+  .node .d{font-size:12px;color:var(--muted);margin-top:3px}
+  .ico{font-size:17px;margin-right:6px}
+
+  /* connector with flowing dots */
+  .conn{width:4px;height:42px;position:relative;background:linear-gradient(var(--line),var(--line));border-radius:4px;overflow:hidden}
+  .conn::after{content:"";position:absolute;left:-3px;top:-30%;width:10px;height:10px;border-radius:50%;
+    background:var(--brand2);box-shadow:0 0 10px var(--brand2);animation:fall 1.8s linear infinite}
+  .conn.s2::after{animation-delay:.3s}.conn.s3::after{animation-delay:.6s}
+  .conn.s4::after{animation-delay:.2s}.conn.s5::after{animation-delay:.5s}.conn.s6::after{animation-delay:.1s}
+
+  /* branch row */
+  .branch{display:flex;gap:18px;justify-content:center;flex-wrap:wrap}
+  .lane{display:flex;flex-direction:column;align-items:center}
+  .pill{background:#fff;border:1.5px solid var(--line);border-radius:14px;padding:11px 15px;text-align:center;
+    min-width:190px;box-shadow:0 6px 16px rgba(0,0,0,.05);animation:pop .6s both}
+  .pill .t{font-weight:700;font-size:13.5px}.pill .d{font-size:11px;color:var(--muted);margin-top:2px}
+
+  /* colored variants */
+  .safe{border-color:#9fe3cb}.safe .t{color:var(--brand)}
+  .danger{border-color:#f3b4b4;background:#fff6f6}.danger .t{color:var(--danger)}
+  .info{border-color:#bcd9f5}.info .t{color:var(--info)}
+  .guard{border-color:#bcd9f5;background:#f3f9ff}
+
+  /* decision marker */
+  .decision{border-color:var(--amber)!important;background:var(--amberbg)!important;
+    box-shadow:0 0 0 0 rgba(245,158,11,.5);animation:pop .6s both, ring 2.4s ease-in-out infinite}
+  .badge{position:absolute;top:-12px;right:-12px;width:28px;height:28px;border-radius:50%;
+    background:var(--amber);color:#fff;font-weight:800;font-size:14px;display:grid;place-items:center;
+    box-shadow:0 4px 10px rgba(245,158,11,.5);z-index:2}
+  .badge.inline{position:static;display:inline-grid;width:22px;height:22px;font-size:12px;vertical-align:middle;margin-left:6px}
+
+  /* safe/restricted chips inside scoping node */
+  .chips{display:flex;gap:8px;justify-content:center;margin-top:9px}
+  .chip{font-size:11px;font-weight:700;padding:5px 10px;border-radius:999px}
+  .chip.g{background:#e3f7ef;color:var(--brand)}
+  .chip.r{background:#fde7e7;color:var(--danger)}
+
+  .merge{font-size:11px;color:var(--muted);margin:4px 0 0}
+
+  /* decisions legend cards */
+  .decs{margin-top:34px}
+  .decs h2{font-size:15px;margin:0 0 4px}
+  .decs .hint{color:var(--muted);font-size:12px;margin-bottom:14px}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:12px}
+  .card{background:#fff;border:1.5px solid var(--line);border-left:4px solid var(--amber);border-radius:12px;padding:13px 15px}
+  .card .q{font-size:12px;color:var(--muted);font-style:italic}
+  .card .a{font-size:13.5px;font-weight:600;margin-top:6px}
+  .card .a b{color:var(--brand)}
+
+  .foot{margin-top:26px;text-align:center;color:var(--muted);font-size:11.5px}
+  .tags{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin-top:8px}
+  .tag{background:#fff;border:1px solid var(--line);border-radius:999px;padding:4px 11px;font-size:11px}
+
+  @keyframes fall{from{top:-30%}to{top:130%}}
+  @keyframes pop{from{opacity:0;transform:translateY(10px) scale(.97)}to{opacity:1;transform:none}}
+  @keyframes breathe{0%,100%{box-shadow:0 8px 22px rgba(14,124,102,.08)}50%{box-shadow:0 12px 30px rgba(14,124,102,.16)}}
+  @keyframes ring{0%,100%{box-shadow:0 0 0 0 rgba(245,158,11,.45)}50%{box-shadow:0 0 0 9px rgba(245,158,11,0)}}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="head">
+    <div class="mark">S</div>
+    <div>
+      <div class="title">SadaDost — How the support bot thinks</div>
+      <div class="sub">Grounded · safe · escalates when unsure. Amber ①–⑤ = decisions from the brief.</div>
+    </div>
+  </div>
+
+  <div class="legendline">
+    <span class="key"><span class="dot" style="background:var(--brand2)"></span>pipeline</span>
+    <span class="key"><span class="dot" style="background:var(--safe)"></span>safe data / answer</span>
+    <span class="key"><span class="dot" style="background:var(--danger)"></span>restricted / safety</span>
+    <span class="key"><span class="dot" style="background:var(--info)"></span>LLM + guardrails</span>
+    <span class="key"><span class="dot" style="background:var(--amber)"></span>your decision</span>
+  </div>
+
+  <div class="flow">
+
+    <div class="node"><div class="t"><span class="ico">👤</span>Customer logs in</div><div class="d">dropdown selects one account</div></div>
+    <div class="conn"></div>
+
+    <div class="node decision">
+      <div class="badge">3</div>
+      <div class="t"><span class="ico">🔐</span>Load ONLY this customer</div>
+      <div class="d">single-customer scoping · safe vs restricted split</div>
+      <div class="chips"><span class="chip g">SAFE → context</span><span class="chip r">RESTRICTED 🔒 never sent to LLM</span></div>
+    </div>
+    <div class="conn s2"></div>
+
+    <div class="node info"><div class="t"><span class="ico">🧭</span>Router (LLM)</div><div class="d">in scope? · needs account data?</div></div>
+    <div class="conn s3"></div>
+
+    <div class="branch">
+      <div class="lane"><div class="pill safe"><div class="t">📘 Knowledge base</div><div class="d">always grounds the answer</div></div></div>
+      <div class="lane"><div class="pill safe"><div class="t">➕ Account safe data</div><div class="d">added when needed (e.g. disputes)</div></div></div>
+      <div class="lane"><div class="pill decision"><div class="badge">1</div><div class="t">🚫 Out of scope → Decline</div><div class="d">no approved answer · don't invent</div></div></div>
+    </div>
+    <div class="merge">in-scope → KB <b>+ account data if the question needs it</b> → answer generation</div>
+    <div class="conn s4"></div>
+
+    <div class="node guard">
+      <div class="t"><span class="ico">✍️</span>Answer generation (LLM)</div>
+      <div class="d">wrapped by OpenAI Guardrails: moderation · jailbreak · PII</div>
+    </div>
+    <div class="conn s5"></div>
+
+    <div class="node decision">
+      <div class="badge">4</div>
+      <div class="t"><span class="ico">🎯</span>Grounding gate</div>
+      <div class="d">does approved content fully answer it? <span class="badge inline">2</span></div>
+      <div class="chips"><span class="chip g">grounded → answer</span><span class="chip r">not grounded → 🧑‍💼 escalate</span></div>
+    </div>
+    <div class="conn s6"></div>
+
+    <div class="node danger">
+      <div class="badge">3</div>
+      <div class="t"><span class="ico">🛡️</span>Deterministic PII floor</div>
+      <div class="d">scrubs CNIC / IBAN / card — even if the model slips</div>
+    </div>
+    <div class="conn"></div>
+
+    <div class="node safe"><div class="t"><span class="ico">💬</span>Reply to customer</div><div class="d">short · friendly · in their language ⑤</div></div>
+
+  </div>
+
+  <!-- decisions the reviewer will probe -->
+  <div class="decs">
+    <h2>Your decisions (what the brief asks you to defend)</h2>
+    <div class="hint">Point at the amber node, then read the card.</div>
+    <div class="grid">
+      <div class="card">
+        <div><span class="badge inline">1</span> <b>No approved answer / out of scope</b></div>
+        <div class="q">"What if the answer isn't in the approved content at all?"</div>
+        <div class="a">Two buckets: out-of-scope (crypto) → <b>plainly decline, no false human promise</b>; never invent policy, fees or steps.</div>
+      </div>
+      <div class="card">
+        <div><span class="badge inline">2</span> <b>Problem seen, no policy</b></div>
+        <div class="q">"What if it sees a problem in the data but has no approved policy?"</div>
+        <div class="a">Acknowledge what's visible, then <b>escalate to a human</b> (e.g. duplicate Netflix charge, restricted account).</div>
+      </div>
+      <div class="card">
+        <div><span class="badge inline">3</span> <b>Data that must not be shared</b></div>
+        <div class="q">"What if a customer asks for info that shouldn't be shared?"</div>
+        <div class="a"><b>Three layers:</b> restricted never enters the prompt · guardrail PII check · regex floor scrubs the output.</div>
+      </div>
+      <div class="card">
+        <div><span class="badge inline">4</span> <b>Answer vs. escalate</b></div>
+        <div class="q">"How does it tell 'I can answer' from 'a human should take this'?"</div>
+        <div class="a">A <b>binary grounding check</b>: the model says whether approved content <b>fully answers</b> it — if not, it offers a human (no brittle score to wobble).</div>
+      </div>
+      <div class="card">
+        <div><span class="badge inline">5</span> <b>Ambiguity &amp; language</b></div>
+        <div class="q">"Where materials are ambiguous or two-way — decide and note it."</div>
+        <div class="a">Physical-vs-virtual card unknown → <b>state the condition, don't guess</b>. Reply in the <b>customer's language</b>, else English.</div>
+      </div>
+      <div class="card" style="border-left-color:var(--brand)">
+        <div>🧱 <b>Why this shape</b></div>
+        <div class="q">grounding · safety · escalation are all deterministic code…</div>
+        <div class="a">…the LLM only <b>phrases</b>. So the safety guarantees hold even if the model misbehaves.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="foot">
+    <div>Single-turn · stateless · the LLM never sees restricted data</div>
+    <div class="tags">
+      <span class="tag">React + Vite</span><span class="tag">FastAPI</span><span class="tag">OpenAI · gpt-5</span>
+      <span class="tag">OpenAI Guardrails</span><span class="tag">deterministic PII floor</span>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
