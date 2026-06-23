@@ -17,7 +17,9 @@ The take-home asks for three things — here's where each lives:
 |-------------|----------|
 | **1. The repo** — code + tests + how-to-run | this README · `backend/` · `frontend/` · `tests/` |
 | **2. DECISIONS.md** — the reasoning behind every choice | [`DECISIONS.md`](DECISIONS.md) |
-| **3. Part 2 design note** — governed data layer | [`specs/part2/design-note.md`](specs/part2/design-note.md) + diagram |
+| **3. Part 2 design note** — governed data layer | [`specs/part2/design-note.md`](specs/part2/design-note.md) |
+| **Diagrams** — Part 2 | source: [draw.io](https://drive.google.com/file/d/1tUdgqHjtqxiuZKh_S_5W7uEgwXhrajfz/view?usp=sharing) → exported [`specs/part2/SadaDost-architecture.drawio.png`](specs/part2/SadaDost-architecture.drawio.png); Mermaid [`specs/part2/live-data-lane.mmd`](specs/part2/live-data-lane.mmd) sits alongside the `.md` |
+| **Diagrams** — Part 1 | [`specs/part1/architecture.html`](specs/part1/architecture.html) (open in a browser) |
 
 Background specs (spec → plan → tasks) are in [`specs/`](specs/).
 
@@ -57,19 +59,26 @@ curl -s -X POST http://localhost:8000/chat -H "Content-Type: application/json" \
 | Method | Path | Body | Returns |
 |--------|------|------|---------|
 | `GET`  | `/customers` | — | `[{ id, firstName }]` for the login dropdown |
-| `POST` | `/chat` | `{ "customer_id": "...", "message": "..." }` | `{ customer_id, intent, reply, pii_redacted, guardrail_blocked }` |
+| `POST` | `/chat` | `{ "customer_id": "...", "message": "..." }` | `{ customer_id, intent, action, reply, grounded, pii_redacted, guardrail_blocked }` |
 
 **Pipeline**
 
 ```
 login(customer_id) → load ONLY that customer (safe context; restricted kept server-side)
 question
-  → intent classify (LLM):  general | account | out_of_scope
-  → build grounding context: knowledge.md / customer's SAFE fields / none
-  → LLM phrasing via OpenAI Guardrails (moderation, jailbreak, PII)
+  → route (LLM): TWO flags — in_scope?  +  needs_account?
+  → NOT in_scope          → polite decline, no human promise            [action: decline]
+  → in_scope              → ground on knowledge.md (+ customer's SAFE
+                            account data when needs_account)
+       → answer call returns {reply, grounded}
+       → grounded?  yes → answer   |   no → escalate to a human         [action: answer | escalate]
+  → guardrail trips anywhere (moderation/jailbreak/PII) → safe refusal  [action: refuse]
   → deterministic PII floor (regex + exact-match scrub)
   → reply
 ```
+
+The "answer confidently vs a human should take this" call is a binary **grounding** judgment, not a
+confidence score — escalate whenever the approved context doesn't fully answer.
 
 **Two safety guarantees that don't depend on the model:**
 1. Restricted fields never enter any prompt (structural isolation).
@@ -96,12 +105,10 @@ A design note, not code: replace brittle log-scraping with two clean lanes.
 
 - **Lane 1 — Live data** (Balance, Card, KYC, Transactions): each service owns its data behind a
   REST API; SadaDost makes **one** call to an **API Gateway / Aggregator** that decodes a signed
-  **JWT**, fans out in parallel with timeouts, strips restricted fields at the source, and stitches
-  one JSON. Critical (KYC/Balance) vs non-critical (Cards/Transactions) failure tiering.
 - **Lane 2 — Batch data** (analytics & historical): sources → **Airbyte** ELT → **BigQuery**
   medallion (bronze → silver → gold via Airflow) → **FastAPI** serving. Stale copy, analytics only.
 
-> Full write-up — both lanes, the six required positions, trade-offs, why-Airbyte →
+> Full write-up — both lanes and the six required positions →
 > [`specs/part2/design-note.md`](specs/part2/design-note.md)
 > (diagram source: [draw.io](https://drive.google.com/file/d/1tUdgqHjtqxiuZKh_S_5W7uEgwXhrajfz/view?usp=sharing)).
 
@@ -145,5 +152,3 @@ SadaDost/
 ├── DECISIONS.md              # reasoning behind every choice
 └── README.md
 ```
-
-**Note:** renaming a `venv` folder breaks it (hardcoded paths) — recreate it instead.
