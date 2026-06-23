@@ -24,8 +24,26 @@
 - [x] Run questions.txt queries; refine edge-case behavior
 - [x] Tests for guardrails (PII never leaks), routing, decline/escalate
 
-## Part 2
-- [ ] Governed data layer design note + diagram
+## Part 2 — Governed data layer (design note + diagram)
+### Framing
+- [ ] State the problem: today data comes from scraping microservices' logs (brittle, ungoverned)
+- [ ] Scope the data needed: balance, card status, KYC, transactions (live) + behavioural analytics
+
+### Architecture (the diagram)
+- [ ] Data ownership: which service owns each domain (balance vs card vs KYC vs txns)
+- [ ] Access pattern: bot → single data-access layer → per-service APIs (not logs)
+- [ ] Product-analytics tool integration for behavioural signals
+
+### Must take a position on
+- [ ] Ownership & exposure — who owns what, how each field is exposed
+- [ ] Correctness/isolation — never reads wrong customer's data or a field it shouldn't see
+- [ ] Resilience — service slow/down mid-answer (timeouts, fallback, partial answers)
+- [ ] Data residency — for financial data
+- [ ] Extensibility — how a new data signal is added later
+- [ ] Scale — as services and AI use-cases multiply
+
+### Close
+- [ ] State trade-offs and what's deliberately deferred; be honest about what's unsure
 
 ## Submission
 - [ ] README (how to run)

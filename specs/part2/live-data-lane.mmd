@@ -1,0 +1,45 @@
+%% Part 2 — Live Data Lane (Aggregator Pattern)
+%%{init: {'flowchart': {'curve': 'linear', 'nodeSpacing': 65, 'rankSpacing': 80}}}%%
+flowchart TD
+    User([👤 Customer])
+    Bot[🤖 SadaDost Bot]
+
+    subgraph Auth["🔐 Auth Service"]
+        direction TB
+        AuthSvc[Generates UUID<br/>Issues signed JWT]
+        UsersDB[(users DB)]
+        AuthSvc --> UsersDB
+    end
+
+    subgraph GW["🚪 API Gateway / Aggregator"]
+        direction TB
+        Decode[Decode JWT<br/>extract user_id UUID]
+        Fan[Parallel fan-out<br/>asyncio.gather + timeout]
+        Stitch[Stitch → one JSON<br/>tiered failure handling]
+        Decode --> Fan --> Stitch
+    end
+
+    subgraph Services["🏦 Owning Microservices — each strips restricted fields"]
+        direction TB
+        KYC["KYC API :8081<br/>(critical)"]
+        Bal["Balance API :8082<br/>(critical)"]
+        Card["Cards API :8083<br/>(non-critical)"]
+        Txn["Transactions API :8084<br/>(non-critical)"]
+    end
+
+    User -->|login| Bot
+    AuthSvc -.->|signed JWT| Bot
+    Bot -->|"1 request — GET /user-profile<br/>Authorization: JWT"| Decode
+
+    Fan -->|GET /kyc/uuid| KYC
+    Fan -->|GET /balance/uuid| Bal
+    Fan -->|GET /cards/uuid| Card
+    Fan -->|GET /transactions/uuid| Txn
+
+    KYC -. allowed fields only .-> Stitch
+    Bal -. allowed fields only .-> Stitch
+    Card -. "[] on timeout" .-> Stitch
+    Txn -. "[] on timeout" .-> Stitch
+
+    Stitch -->|single aggregated payload| Bot
+    Bot -->|answer| User
